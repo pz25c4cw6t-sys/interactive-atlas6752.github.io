@@ -1,0 +1,995 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Интерактивный атлас по гистологии</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=Literata:opsz,wght@7..72,500;7..72,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: фиксированное боковое меню + рабочая область с вкладками; на телефоне меню выезжает сверху.
+   Палитра названа по окраске Г-Э: гематоксилин (синяя ночь), эозин (акцент кнопок), нейтрали с лёгким сиреневым уклоном. */
+:root{
+  --bg:#f5f6fb; --surface:#ffffff; --surface2:#eceef7; --line:#d6d9ea;
+  --ink:#1b1f3b; --ink2:#4b5075; --hema:#3d3a8c; --hema-soft:#e4e3f6;
+  --eosin:#b3304f; --eosin-ink:#ffffff;
+  --theory:#2f5f9e; --theory-bg:#e6eefa;
+  --class:#5b3fa0; --class-bg:#ece7f8;
+  --ex:#1f7a5c; --ex-bg:#e2f3ec;
+  --warn:#9a5a00; --warn-bg:#fdf0d8;
+  --err:#a62f2f; --err-bg:#fbe5e5;
+  --shadow:0 1px 2px rgba(27,31,59,.08),0 4px 16px rgba(27,31,59,.06);
+  --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --f-head:"Literata",Georgia,"Times New Roman",serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12142a; --surface:#1a1d3a; --surface2:#23274a; --line:#363b68;
+  --ink:#eceefb; --ink2:#b3b8dc; --hema:#a9a6ff; --hema-soft:#2b2a5c;
+  --eosin:#e0597a; --eosin-ink:#1a0b11;
+  --theory:#8db7f2; --theory-bg:#1d2b47;
+  --class:#c3adff; --class-bg:#2c2350;
+  --ex:#6fd1ab; --ex-bg:#17332b;
+  --warn:#f0bd6a; --warn-bg:#3a2d12;
+  --err:#ff9a9a; --err-bg:#401c1c;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.3);
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12142a; --surface:#1a1d3a; --surface2:#23274a; --line:#363b68;
+  --ink:#eceefb; --ink2:#b3b8dc; --hema:#a9a6ff; --hema-soft:#2b2a5c;
+  --eosin:#e0597a; --eosin-ink:#1a0b11;
+  --theory:#8db7f2; --theory-bg:#1d2b47;
+  --class:#c3adff; --class-bg:#2c2350;
+  --ex:#6fd1ab; --ex-bg:#17332b;
+  --warn:#f0bd6a; --warn-bg:#3a2d12;
+  --err:#ff9a9a; --err-bg:#401c1c;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.3);
+  color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;padding-inline:0}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important;animation:none!important}}
+h1,h2,h3,h4{font-family:var(--f-head);line-height:1.2;text-wrap:balance;margin:0}
+p{margin:0 0 .7em}
+a{color:var(--hema)}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--eosin);outline-offset:2px;border-radius:4px}
+.mono{font-family:var(--f-mono);font-size:.78rem;letter-spacing:.02em}
+
+/* верхняя панель */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;background:var(--surface);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:10px 16px}
+.brand{font-family:var(--f-head);font-weight:700;font-size:1.05rem;color:var(--hema);white-space:nowrap;min-width:0}
+.brand .short{display:none}
+@media (max-width:700px){.brand .full{display:none}.brand .short{display:inline}}
+.burger{display:none;border:1px solid var(--line);background:var(--surface2);border-radius:8px;padding:6px 10px;cursor:pointer}
+.search{position:relative;flex:1;max-width:520px;margin-left:auto}
+.search input{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}
+.results{position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);max-height:60vh;overflow:auto;z-index:40}
+.results button{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:10px 14px;cursor:pointer}
+.results button:last-child{border-bottom:0}
+.results button:hover{background:var(--surface2)}
+.results small{display:block;color:var(--ink2)}
+.results .none{padding:12px 14px;color:var(--ink2)}
+
+/* каркас */
+.shell{display:grid;grid-template-columns:268px minmax(0,1fr);align-items:start}
+.nav{position:sticky;top:calc(58px + env(safe-area-inset-top,0px));height:calc(100vh - 58px);overflow:auto;padding:18px 16px;border-right:1px solid var(--line);background:var(--surface)}
+.nav h4{font-family:var(--f-body);font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--ink2);margin:16px 0 6px}
+.nav a,.nav .dis{display:block;padding:7px 10px;border-radius:8px;text-decoration:none;color:var(--ink);font-size:.95rem}
+.nav a:hover{background:var(--surface2)}
+.nav a.on{background:var(--hema-soft);color:var(--hema);font-weight:600}
+.nav .sub a{padding-left:24px;font-size:.88rem;color:var(--ink2)}
+.nav .sub a.on{color:var(--hema)}
+.nav .dis{color:var(--ink2);opacity:.7}
+main{min-width:0;padding:22px 16px 90px;max-width:1080px;width:100%;margin-inline:auto}
+.view[hidden]{display:none}
+
+/* стартовая */
+.hero{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:26px 22px;box-shadow:var(--shadow)}
+.hero h1{font-size:clamp(1.7rem,4.4vw,2.6rem);color:var(--hema)}
+.hero p.lead{font-size:1.08rem;color:var(--ink2);max-width:62ch;margin-top:10px}
+.btn{display:inline-block;background:var(--eosin);color:var(--eosin-ink);border:0;border-radius:10px;padding:11px 20px;font-weight:600;cursor:pointer;text-decoration:none}
+.btn:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent;color:var(--hema);border:1px solid var(--line)}
+.cards3{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:18px 0}
+.rc{display:flex;flex-direction:column;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;text-align:left;min-width:0}
+.rc.live{cursor:pointer;border-color:var(--hema);box-shadow:var(--shadow)}
+.rc.live:hover{background:var(--hema-soft)}
+.rc .num{font-family:var(--f-mono);font-size:.78rem;color:var(--ink2)}
+.rc h3{font-size:1.15rem}
+.rc .cnt{margin-top:auto;font-family:var(--f-mono);font-size:.85rem}
+.rc.off{opacity:.65}
+.pill{display:inline-block;border-radius:99px;padding:2px 10px;font-size:.78rem;font-weight:600;background:var(--surface2);color:var(--ink2)}
+.pill.ok{background:var(--ex-bg);color:var(--ex)} .pill.check{background:var(--warn-bg);color:var(--warn)} .pill.low{background:var(--err-bg);color:var(--err)}
+.howto{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:10px}
+.howto div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:.93rem}
+.toc{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.toc ol{margin:6px 0 0;padding-left:20px}
+.toc li{margin:4px 0}
+
+/* раздел */
+.sechead{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;margin-bottom:6px}
+.sechead h2{font-size:clamp(1.4rem,3.6vw,2rem);color:var(--hema)}
+.tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line);margin:12px 0 18px;padding-bottom:0;scrollbar-width:thin}
+.tabs button{flex:0 0 auto;background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;cursor:pointer;color:var(--ink2);font-weight:500}
+.tabs button[aria-selected="true"]{color:var(--hema);border-bottom-color:var(--eosin);font-weight:600}
+.pane[hidden]{display:none}
+.pane h3{font-size:1.35rem;margin:28px 0 10px;scroll-margin-top:90px}
+.pane h4{font-size:1.1rem;margin:20px 0 8px;font-family:var(--f-head)}
+.pane > h3:first-child{margin-top:4px}
+.src{font-family:var(--f-mono);font-size:.72rem;background:var(--surface2);color:var(--ink2);border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:middle;white-space:nowrap}
+.blk{border-radius:12px;padding:12px 16px;margin:14px 0;border:1px solid transparent}
+.blk .lab{display:block;font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;font-weight:700;margin-bottom:4px}
+.blk p:last-child,.blk ul:last-child{margin-bottom:0}
+.blk ul{margin:.3em 0;padding-left:20px}
+.idea{background:var(--theory-bg);color:var(--ink)} .idea .lab{color:var(--theory)}
+.mem{background:var(--class-bg)} .mem .lab{color:var(--class)}
+.sign{background:var(--ex-bg)} .sign .lab{color:var(--ex)}
+.diff{background:var(--hema-soft)} .diff .lab{color:var(--hema)}
+.err{background:var(--err-bg)} .err .lab{color:var(--err)}
+.test{background:var(--warn-bg)} .test .lab{color:var(--warn)}
+.three{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin:10px 0}
+.three > div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;min-width:0}
+.three b{display:block;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:4px}
+.pass{display:grid;grid-template-columns:minmax(120px,170px) minmax(0,1fr);gap:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface);margin:10px 0}
+.pass dt,.pass dd{margin:0;padding:8px 12px;border-bottom:1px solid var(--line)}
+.pass dt{background:var(--surface2);font-weight:600;font-size:.88rem}
+.pass dt:nth-last-of-type(1),.pass dd:last-child{border-bottom:0}
+.term{color:var(--hema);text-decoration:underline dotted;cursor:pointer}
+.flash{animation:fl 1.6s ease}
+@keyframes fl{0%,60%{box-shadow:0 0 0 4px var(--eosin)}100%{box-shadow:0 0 0 0 transparent}}
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.gloss > div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px;min-width:0}
+.gloss b{color:var(--hema)}
+
+/* дерево классификации */
+.tree{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;overflow-x:auto}
+.tree ul{list-style:none;margin:0;padding-left:20px;border-left:2px solid var(--line)}
+.tree > ul{padding-left:0;border-left:0}
+.tree li{margin:6px 0;position:relative}
+.tree .n{display:inline-block;background:var(--hema-soft);color:var(--hema);border-radius:8px;padding:2px 10px;font-weight:600}
+.tree .p{font-family:var(--f-mono);font-size:.76rem;color:var(--ink2);margin-left:6px}
+
+/* таблицы */
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface);margin:10px 0}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:.92rem}
+th,td{padding:8px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+th{background:var(--surface2);font-size:.8rem;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2)}
+tr:last-child td{border-bottom:0}
+caption{caption-side:top;text-align:left;padding:10px 12px 0;font-family:var(--f-head);font-weight:700;font-size:1rem}
+
+/* препараты */
+.slides{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin:8px 0 6px}
+.slides figure{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px;min-width:0}
+.slides img{display:block;width:100%;border-radius:6px;height:auto}
+.slides figcaption{font-size:.8rem;color:var(--ink2);margin-top:4px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:6px 14px;cursor:pointer;font-size:.9rem}
+.chip[aria-pressed="true"]{background:var(--hema);color:var(--bg);border-color:var(--hema)}
+.chip:disabled{opacity:.5;cursor:not-allowed}
+.figs{display:flex;flex-direction:column;gap:18px;margin-top:10px}
+.fig{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:18px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow)}
+.fig[hidden]{display:none}
+.ph{position:relative;min-width:0}
+.ph button.zoom{display:block;width:100%;padding:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface2);cursor:zoom-in}
+.ph img{display:block;width:100%;height:auto}
+.ph .hint{font-size:.78rem;color:var(--ink2);margin-top:6px}
+.fig h4{font-size:1.15rem;margin:0 0 6px}
+.badges{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px}
+.badges .pill{background:var(--hema-soft);color:var(--hema)}
+.fig details{border-top:1px solid var(--line);padding:8px 0}
+.fig summary{cursor:pointer;font-weight:600;font-size:.92rem}
+.fig ul{margin:6px 0 0;padding-left:20px}
+.fig li{margin:2px 0}
+.cap{background:var(--surface2);border-radius:10px;padding:10px 14px;font-size:.93rem;margin:10px 0}
+.cap b{font-family:var(--f-mono);font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);display:block;margin-bottom:2px}
+.conf{margin-top:8px;font-size:.9rem}
+@media (max-width:760px){.fig{grid-template-columns:minmax(0,1fr)}}
+
+/* самопроверка */
+.qgroup{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 18px;margin:14px 0}
+.qgroup h4{margin-top:0}
+.qgroup h5{margin:14px 0 4px;font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);font-family:var(--f-body)}
+.q{border-top:1px solid var(--line);padding:8px 0}
+.q:first-of-type{border-top:0}
+.q details summary{cursor:pointer;color:var(--hema);font-weight:600;margin-top:4px}
+.q details p{margin:6px 0 0;background:var(--ex-bg);border-radius:8px;padding:8px 12px}
+
+/* плавающие кнопки */
+.fab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:8px;z-index:25}
+.fab button{background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:10px;padding:8px 12px;cursor:pointer;font-weight:600;color:var(--hema)}
+.backtoc{display:inline-block;margin-top:22px}
+
+/* лайтбокс */
+.lb{position:fixed;inset:0;z-index:60;background:#0b0c1c;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.lb[hidden]{display:none}
+.lb-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 16px;color:#eceefb}
+.lb-bar .t{flex:1;min-width:140px;font-weight:600}
+.lb-bar button{background:#2a2e57;color:#eceefb;border:1px solid #4a4f86;border-radius:8px;padding:7px 12px;cursor:pointer}
+.lb-stage{flex:1;min-height:0;overflow:auto;display:flex;align-items:center;justify-content:center;padding:0 16px}
+.lb-stage img{max-width:100%;max-height:100%;object-fit:contain;cursor:zoom-in}
+.lb-stage.z{align-items:flex-start;justify-content:flex-start}
+.lb-stage.z img{max-width:none;max-height:none;width:190%;cursor:zoom-out}
+.lb-cap{color:#cfd2ee;font-size:.88rem;padding:10px 16px;max-height:24vh;overflow:auto}
+
+@media (max-width:900px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .burger{display:block}
+  .nav{position:fixed;top:calc(58px + env(safe-area-inset-top,0px));left:0;right:0;height:auto;max-height:calc(100vh - 70px);z-index:29;border-right:0;border-bottom:1px solid var(--line);box-shadow:var(--shadow);transform:translateY(-130%);transition:transform .2s}
+  .nav.open{transform:none}
+  .brand{font-size:.95rem}
+}
+@media (max-width:520px){.pass{grid-template-columns:minmax(0,1fr)}.pass dt{border-bottom:0;padding-bottom:0}.pass dd{padding-top:2px}}
+</style>
+
+<header class="top">
+  <button class="burger" id="burger" aria-label="Меню" aria-expanded="false">Меню</button>
+  <a class="brand" href="#home" data-go="home" style="text-decoration:none"><span class="full">Интерактивный атлас по гистологии</span><span class="short">Атлас</span></a>
+  <div class="search">
+    <input id="q" type="search" placeholder="Поиск по терминам и подписям" autocomplete="off" aria-label="Поиск">
+    <div class="results" id="res" hidden></div>
+  </div>
+</header>
+
+<div class="shell">
+<nav class="nav" id="nav" aria-label="Оглавление">
+  <a href="#home" data-go="home" id="n-home">Главная</a>
+  <h4>Раздел 1</h4>
+  <a href="#theory" data-go="theory" data-tab>Теория</a>
+  <div class="sub" id="subnav">
+    <a href="#theory" data-jump="s11">1.1 Общие признаки</a>
+    <a href="#theory" data-jump="s12">1.2 Однослойные</a>
+    <a href="#theory" data-jump="s13">1.3 Многослойные</a>
+    <a href="#theory" data-jump="s14">1.4 Переходный</a>
+  </div>
+  <a href="#class" data-go="class" data-tab>Классификация</a>
+  <a href="#slides" data-go="slides" data-tab>Микропрепараты</a>
+  <a href="#tables" data-go="tables" data-tab>Таблицы</a>
+  <a href="#quiz" data-go="quiz" data-tab>Самопроверка</a>
+  <a href="#sources" data-go="sources" data-tab>Источники</a>
+  <h4>Следующие разделы</h4>
+  <span class="dis">Раздел 2. Железы (после проверки)</span>
+  <span class="dis">Раздел 3. Эмбриональные основы (после проверки)</span>
+</nav>
+
+<main id="main">
+
+<!-- ГЛАВНАЯ -->
+<section class="view" id="view-home">
+  <div class="hero">
+    <h1>Интерактивный атлас по гистологии</h1>
+    <p class="lead">Учебный справочник и атлас микропрепаратов для студентов-медиков: теория из лекций кафедры, классификации, таблицы сравнения и фотографии препаратов с исправленными подписями.</p>
+    <p style="margin-top:16px"><button class="btn" data-go="theory">Начать изучение</button> <button class="btn ghost" data-go="slides">Сразу к препаратам</button></p>
+  </div>
+  <div class="cards3" id="toc-cards">
+    <button class="rc live" data-go="theory">
+      <span class="num">РАЗДЕЛ 1 · готов</span>
+      <h3>Покровные эпителии</h3>
+      <span>Однослойные, многослойные и переходный эпителий. Препараты №42–47.</span>
+      <span class="cnt">14 фото</span>
+    </button>
+    <div class="rc off">
+      <span class="num">РАЗДЕЛ 2 · после проверки раздела 1</span>
+      <h3>Железистый эпителий и железы</h3>
+      <span>Сальная, маточные железы, железы языка. Препараты №50–52.</span>
+      <span class="cnt">8 фото</span>
+    </div>
+    <div class="rc off">
+      <span class="num">РАЗДЕЛ 3 · после проверки раздела 2</span>
+      <h3>Эмбриональные основы</h3>
+      <span>Гаструляция, нейруляция, туловищные складки. Препараты №37, 38, 40.</span>
+      <span class="cnt">9 фото</span>
+    </div>
+  </div>
+  <div class="toc" id="toc">
+    <h3 style="font-size:1.15rem">Оглавление раздела 1</h3>
+    <ol>
+      <li><a href="#theory" data-go="theory">Теория</a>: <a href="#theory" data-jump="s11" data-go="theory">1.1 Общие признаки</a>, <a href="#theory" data-jump="s12" data-go="theory">1.2 Однослойные</a>, <a href="#theory" data-jump="s13" data-go="theory">1.3 Многослойные</a>, <a href="#theory" data-jump="s14" data-go="theory">1.4 Переходный</a></li>
+      <li><a href="#class" data-go="class">Классификация</a> и источники развития</li>
+      <li><a href="#slides" data-go="slides">Микропрепараты</a>: 14 рисунков и 6 снимков стёкол</li>
+      <li><a href="#tables" data-go="tables">Таблицы</a>: классификация, структура и функция, как узнать, похожие объекты, ошибки</li>
+      <li><a href="#quiz" data-go="quiz">Самопроверка</a></li>
+      <li><a href="#sources" data-go="sources">Источники</a> и блок «Что требует проверки преподавателем»</li>
+    </ol>
+  </div>
+  <h3 style="margin:24px 0 8px;font-size:1.2rem">Как пользоваться атласом</h3>
+  <div class="howto">
+    <div><b>Начните с теории.</b> Каждый термин из лекции помечен меткой источника. Подчёркнутые слова ведут к определению.</div>
+    <div><b>Смотрите препараты.</b> Нажмите на фото, чтобы увеличить его, листать можно стрелками. Фильтр выбирает препарат.</div>
+    <div><b>Читайте подписи критично.</b> Рукописные метки на фото сохранены как есть. Рядом дано объяснение каждой метки и степень уверенности.</div>
+    <div><b>Проверьте себя.</b> Ответы скрыты, откройте их кнопкой «Показать ответ».</div>
+  </div>
+  <p class="mono" style="margin-top:14px;color:var(--ink2)">Нумерация рисунков сквозная для всего атласа (1–32). В разделе 1 используются рисунки 1–5, 7, 8, 11–17.</p>
+</section>
+
+<!-- РАЗДЕЛ 1 -->
+<section class="view" id="view-sec" hidden>
+  <div class="sechead"><span class="mono" style="color:var(--ink2)">РАЗДЕЛ 1</span><h2>Покровные эпителии</h2></div>
+  <div class="tabs" role="tablist" id="tabs">
+    <button role="tab" data-go="theory" aria-selected="true">Теория</button>
+    <button role="tab" data-go="class" aria-selected="false">Классификация</button>
+    <button role="tab" data-go="slides" aria-selected="false">Микропрепараты</button>
+    <button role="tab" data-go="tables" aria-selected="false">Таблицы</button>
+    <button role="tab" data-go="quiz" aria-selected="false">Самопроверка</button>
+    <button role="tab" data-go="sources" aria-selected="false">Источники</button>
+  </div>
+
+  <!-- ТЕОРИЯ -->
+  <div class="pane" id="pane-theory">
+    <h3 id="s11" data-idx data-title="1.1 Общие признаки покровных эпителиев">1.1 Общие признаки покровных эпителиев</h3>
+    <div class="blk idea"><span class="lab">Основная идея</span>
+      <p>Эпителии делятся на <b>покровные</b> (поверхностные и выстилающие) и <b>железистые</b>. Покровный эпителий лежит пластом на базальной мембране и постоянно обновляется за счёт камбиальных клеток. <span class="src">лекция</span></p></div>
+    <p><b>Введение.</b> В этом разделе разобраны покровные эпителии: однослойные (мезотелий, эпителий тонкой кишки, эпителий трахеи), многослойные (пищевод, кожа пальца) и переходный (мочевой пузырь). Железистые эпителии вынесены в раздел 2.</p>
+
+    <h4>Что объединяет покровные эпителии</h4>
+    <div class="three">
+      <div><b>Точное определение</b><p>Покровный эпителий: плотное расположение клеток в виде пласта; пласт расположен на <a class="term" data-term="bm">базальной мембране</a>; внутри пласта нет кровеносных сосудов; апикально-базальная полярность; высокая способность к регенерации (<a class="term" data-term="obn">обновляющаяся популяция</a>). <span class="src">лекция, стр. 3</span></p></div>
+      <div><b>Простыми словами</b><p>Клетки лежат плотно, как слой плитки. Верх клетки (апикальный полюс) и низ (базальный) устроены по-разному. Под пластом лежит соединительная ткань с сосудами, внутри пласта сосудов нет.</p></div>
+      <div><b>Пример</b><p>На рисунке 17 эпителий трахеи лежит на РВСТ: граница между ними показана как базальная мембрана, ниже виден соединительнотканный слой.</p></div>
+    </div>
+    <div class="blk mem"><span class="lab">Запомните</span>
+      <ul><li>Пять признаков: пласт клеток; базальная мембрана; нет сосудов внутри пласта; апикально-базальная полярность; высокая регенерация.</li>
+      <li>Эпителий делится на покровный и железистый. Покровный бывает однослойным и многослойным.</li></ul></div>
+
+    <h4>Обновление эпителия и дифферон</h4>
+    <div class="three">
+      <div><b>Точное определение</b><p><a class="term" data-term="obn">Обновляющаяся клеточная популяция</a>: естественная убыль клеток восполняется за счёт пролиферации стволовых (камбиальных) клеток. Состав: стволовая клетка, клетки в процессе специализации, специализированная клетка. Вместе они составляют <a class="term" data-term="dif">дифферон</a>. <span class="src">лекция, стр. 4</span></p></div>
+      <div><b>Простыми словами</b><p>Стволовая клетка делится, её потомки постепенно специализируются, готовые клетки работают и со временем слущиваются.</p></div>
+      <div><b>Пример</b><p>Рисунки лекции: в многослойном эпителии стволовые клетки в базальном слое; в тонкой кишке они у дна крипты (там же показаны клетки Панета); в трахее стрелки указывают на нижний ряд клеток.</p></div>
+    </div>
+
+    <h4>Специализация клеточной поверхности</h4>
+    <div class="gloss">
+      <div><b>Апикальная</b><br>микроворсинки, реснички, стереоцилии и киноцилии (в чувствительных клетках) <span class="src">лекция, стр. 5</span></div>
+      <div><b>Латеральная</b><br>межклеточные контакты <span class="src">лекция</span></div>
+      <div><b>Базальная</b><br>базальные инвагинации, контакты с подлежащими структурами <span class="src">лекция</span></div>
+    </div>
+
+    <h4>Источники развития покровных эпителиев <span class="src">лекция, стр. 12</span></h4>
+    <div class="tw"><table>
+      <thead><tr><th>Источник</th><th>Какие эпителии (по схеме лекции)</th></tr></thead>
+      <tbody>
+      <tr><td>Эктодерма</td><td>эпидермис кожи, передний эпителий роговицы, эпителий ротовой полости, эпителии слюнных, потовых, сальных и молочных желёз</td></tr>
+      <tr><td>Прехордальная пластинка</td><td>эпителий трахеи и бронхов, эпителий пищевода</td></tr>
+      <tr><td>Кишечная энтодерма</td><td>эпителий кишечника, печени и поджелудочной железы, желчного пузыря и желчевыводящих путей, желудка и желёз желудка</td></tr>
+      <tr><td>Энтодерма</td><td>эпителий мочевого пузыря</td></tr>
+      <tr><td>Нефрогонотом</td><td>эпителий почечных чашечек, лоханок и мочеточников, семявыносящих путей, матки и маточных труб</td></tr>
+      <tr><td>Соматоплевра и спланхноплевра</td><td>эпителий серозных оболочек (мезотелий), эпителий коры надпочечников</td></tr>
+      </tbody></table></div>
+
+    <h4>Основные понятия</h4>
+    <div class="gloss" id="gloss">
+      <div id="t-bm" data-idx data-title="Базальная мембрана"><b>Базальная мембрана</b><br>Структура, на которой лежит пласт эпителия; под ней находится соединительная ткань с сосудами. <span class="src">лекция</span></div>
+      <div id="t-obn" data-idx data-title="Обновляющаяся популяция"><b>Обновляющаяся популяция</b><br>Клетки, убыль которых восполняется пролиферацией стволовых (камбиальных) клеток. <span class="src">лекция</span></div>
+      <div id="t-dif" data-idx data-title="Дифферон"><b>Дифферон</b><br>Ряд клеток от стволовой через клетки в процессе специализации до специализированной. <span class="src">лекция</span></div>
+      <div id="t-cam" data-idx data-title="Камбиальная (стволовая) клетка"><b>Камбиальная (стволовая) клетка</b><br>Клетка, за счёт деления которой обновляется эпителий. Локализация зависит от эпителия (см. таблицы). <span class="src">лекция</span></div>
+      <div id="t-pol" data-idx data-title="Апикально-базальная полярность"><b>Апикально-базальная полярность</b><br>Разное строение верхнего (апикального) и нижнего (базального) полюса клетки. <span class="src">лекция</span></div>
+      <div id="t-rvst" data-idx data-title="РВСТ"><b>РВСТ</b><br>Рыхлая волокнистая соединительная ткань, лежащая под эпителием. <span class="src">методичка</span></div>
+      <div id="t-mez" data-idx data-title="Мезотелий"><b>Мезотелий</b><br>Однослойный плоский эпителий, покрывающий серозные оболочки. <span class="src">атлас</span></div>
+      <div id="t-kaem" data-idx data-title="Каёмчатый (микроворсинчатый) эпителий"><b>Каёмчатый (микроворсинчатый) эпителий</b><br>Однослойный однорядный призматический эпителий с щёточной каёмкой; клетки: каёмчатые и бокаловидные. <span class="src">лекция</span></div>
+      <div id="t-resn" data-idx data-title="Реснитчатый (мерцательный) эпителий"><b>Реснитчатый (мерцательный) эпителий</b><br>Однослойный многорядный призматический эпителий; клетки: низкие вставочные (базальные), высокие вставочные, реснитчатые, бокаловидные. <span class="src">лекция</span></div>
+      <div id="t-bok" data-idx data-title="Бокаловидная клетка"><b>Бокаловидная клетка</b><br>Клетка эпителия; апикальная часть содержит секреторные гранулы. <span class="src">методичка</span></div>
+      <div id="t-vst" data-idx data-title="Вставочные клетки"><b>Вставочные клетки</b><br>Низкие вставочные (базальные, камбиальные) и высокие вставочные клетки эпителия трахеи. <span class="src">лекция, атлас</span></div>
+      <div id="t-uro" data-idx data-title="Уроплакин"><b>Уроплакин</b><br>Интегральный белок пластинок плазмолеммы поверхностных клеток переходного эпителия; защищает эпителий от мочи. <span class="src">атлас</span></div>
+      <div id="t-tot" data-idx data-title="Тотальный препарат"><b>Тотальный препарат</b><br>Препарат №42 приготовлен не как срез, а как тотальный препарат. <span class="src">методичка</span></div>
+    </div>
+
+    <h3 id="s12" data-idx data-title="1.2 Однослойные эпителии">1.2 Однослойные эпителии</h3>
+    <div class="blk idea"><span class="lab">Основная идея</span><p>Однослойные эпителии по лекции делятся на однорядные (плоский, кубический, призматический) и многорядный призматический. В атласе три препарата: мезотелий, каёмчатый эпителий кишки и реснитчатый эпителий трахеи.</p></div>
+
+    <h4>Мезотелий (препарат №42) · рис. 11, 12</h4>
+    <dl class="pass">
+      <dt>Название</dt><dd>Однослойный плоский однорядный эпителий, мезотелий</dd>
+      <dt>Препарат</dt><dd>№42, тотальный препарат. Этикетка на стекле: «Мезотелий сальника кролика». Методичка: «мезотелий брюшины»</dd>
+      <dt>Окраска</dt><dd>Импрегнация серебром и докраска гематоксилином <span class="src">методичка</span></dd>
+      <dt>Локализация</dt><dd>Покрывает серозные оболочки <span class="src">атлас</span></dd>
+      <dt>Функция</dt><dd>Выделение и всасывание серозной жидкости <span class="src">атлас</span></dd>
+      <dt>Камбиальные клетки</dt><dd>Располагаются диффузно <span class="src">атлас</span></dd>
+      <dt>Источник развития</dt><dd>Спланхнотом (атлас); по схеме лекции: соматоплевра и спланхноплевра</dd>
+      <dt>Что показать</dt><dd>Ядро мезотелиоцита, двуядерный мезотелиоцит <span class="src">методичка</span></dd>
+      <dt>Как узнать</dt><dd>Сеть тёмных границ клеток на тотальном препарате, ядра внутри клеток (рис. 11).</dd>
+    </dl>
+    <div class="blk sign"><span class="lab">Микроскопический признак</span><p>Серебро выявляет границы клеток: поле выглядит как мозаика полигональных клеток (рис. 11, 12).</p></div>
+    <div class="blk err"><span class="lab">Типичная ошибка</span><p>Считать окраску препарата №42 гематоксилин-эозином. В исходной подписи стояло «гематоксилин-эозин серебро»; по методичке это импрегнация серебром с докраской гематоксилином.</p></div>
+
+    <h4>Каёмчатый эпителий тонкой кишки (препарат №43) · рис. 13, 14</h4>
+    <dl class="pass">
+      <dt>Название</dt><dd>Однослойный однорядный призматический каёмчатый (микроворсинчатый) эпителий</dd>
+      <dt>Препарат</dt><dd>№43, срез тонкой кишки</dd>
+      <dt>Окраска</dt><dd>Гематоксилин-эозин</dd>
+      <dt>Клеточный состав</dt><dd>Каёмчатые и бокаловидные клетки <span class="src">лекция, стр. 13</span></dd>
+      <dt>Источник развития</dt><dd>Энтодерма (кишечная энтодерма по схеме лекции)</dd>
+      <dt>Камбиальные клетки</dt><dd>Рисунок лекции (стр. 4) показывает стволовые клетки у дна крипты. В атласе написано «диффузно»: расхождение, см. блок проверки.</dd>
+      <dt>Что показать</dt><dd>Каёмчатый эпителиоцит: ядро, цитоплазма, щёточная каёмка. Бокаловидная клетка: ядро, апикальная часть с секреторными гранулами. Базальная мембрана, РВСТ ворсинки, эпителий крипты, РВСТ между криптами <span class="src">методичка</span></dd>
+    </dl>
+    <div class="blk sign"><span class="lab">Микроскопический признак</span><p>Ворсинки, покрытые одним рядом клеток с ядрами на одном уровне; на поверхности щёточная каёмка; среди клеток светлые бокаловидные (рис. 14).</p></div>
+
+    <h4>Реснитчатый эпителий трахеи (препарат №44) · рис. 15, 16, 17</h4>
+    <dl class="pass">
+      <dt>Название</dt><dd>Однослойный многорядный призматический реснитчатый (мерцательный) эпителий</dd>
+      <dt>Препарат</dt><dd>№44, срез трахеи (этикетка: трахея собаки)</dd>
+      <dt>Окраска</dt><dd>Гематоксилин-эозин</dd>
+      <dt>Клеточный состав</dt><dd>Низкие вставочные (базальные), высокие вставочные, реснитчатые, бокаловидные <span class="src">лекция, стр. 13</span></dd>
+      <dt>Камбиальные клетки</dt><dd>Низкие вставочные клетки <span class="src">атлас, методичка</span></dd>
+      <dt>Источник развития</dt><dd>Прехордальная пластинка</dd>
+      <dt>Что показать</dt><dd>Ядро реснитчатого эпителиоцита, реснички, ядро бокаловидной клетки, ядро камбиальной (низкой вставочной) клетки, ядро высокой вставочной клетки, базальная мембрана, РВСТ <span class="src">методичка</span></dd>
+    </dl>
+    <div class="blk sign"><span class="lab">Микроскопический признак</span><p>Ядра лежат на нескольких уровнях, на апикальной поверхности виден слой ресничек (рис. 17).</p></div>
+    <div class="blk diff"><span class="lab">Как отличить</span><p><b>Кишка (№43)</b>: однорядный эпителий, щёточная каёмка, ворсинки. <b>Трахея (№44)</b>: многорядный эпителий, реснички, вставочные клетки.</p></div>
+    <div class="blk err"><span class="lab">Типичная ошибка</span><p>Писать, что в эпителии трахеи две разновидности клеток. По схеме лекции их четыре: низкие вставочные, высокие вставочные, реснитчатые, бокаловидные.</p></div>
+
+    <h3 id="s13" data-idx data-title="1.3 Многослойные эпителии">1.3 Многослойные эпителии</h3>
+    <div class="blk idea"><span class="lab">Основная идея</span><p>Многослойный плоский эпителий бывает неороговевающим (пищевод) и ороговевающим (кожа пальца). Названия слоёв берутся из методички к препаратам №45 и №46.</p></div>
+
+    <h4>Многослойный плоский неороговевающий эпителий (препарат №45) · рис. 1, 2, 3</h4>
+    <dl class="pass">
+      <dt>Препарат</dt><dd>№45, поперечный срез пищевода (этикетка: собаки)</dd>
+      <dt>Окраска</dt><dd>Гематоксилин-эозин</dd>
+      <dt>Слои</dt><dd>Базальный, шиповатый, поверхностный <span class="src">методичка</span></dd>
+      <dt>Источник развития</dt><dd>Прехордальная пластинка <span class="src">лекция, атлас</span></dd>
+      <dt>Что показать</dt><dd>Эпителиоциты трёх слоёв, базальная мембрана, подлежащая РВСТ, слизистые экстраэпителиальные железы <span class="src">методичка</span></dd>
+    </dl>
+
+    <h4>Многослойный плоский ороговевающий эпителий (препарат №46) · рис. 4, 5</h4>
+    <dl class="pass">
+      <dt>Препарат</dt><dd>№46, кожа пальца человека</dd>
+      <dt>Окраска</dt><dd>Гематоксилин-эозин</dd>
+      <dt>Слои</dt><dd>Базальный, шиповатый, зернистый, блестящий, роговой <span class="src">методичка</span></dd>
+      <dt>Камбиальные клетки</dt><dd>В базальном слое <span class="src">методичка: «клетка базального слоя (локализация камбиальных клеток)»</span></dd>
+      <dt>Источник развития</dt><dd>Эктодерма</dd>
+      <dt>Что показать</dt><dd>Клетки базального, шиповатого, зернистого слоёв, блестящий слой, роговой слой (локализация роговых чешуек), базальная мембрана, подлежащая РВСТ, потовая железа <span class="src">методичка</span></dd>
+    </dl>
+    <div class="blk sign"><span class="lab">Микроскопический признак</span><p>На рис. 5: зернистый слой подписан как ярко базофильный, блестящий слой выделяется как светлая полоса, роговой слой образован безъядерными розовыми чешуйками. Подпись автора атласа: наличие блестящего слоя указывает на толстую кожу.</p></div>
+    <div class="blk diff"><span class="lab">Как отличить</span><p><b>Неороговевающий</b>: три слоя (базальный, шиповатый, поверхностный). <b>Ороговевающий</b>: пять слоёв, сверху роговой слой.</p></div>
+
+    <h3 id="s14" data-idx data-title="1.4 Переходный эпителий">1.4 Переходный эпителий</h3>
+    <div class="blk idea"><span class="lab">Основная идея</span><p>Переходный эпителий мочевого пузыря меняет вид при растяжении и сокращении органа. Растяжение обеспечивают пластинки плазмолеммы из уроплакина и гибкие участки между ними. <span class="src">атлас</span></p></div>
+    <dl class="pass">
+      <dt>Препарат</dt><dd>№47, срез мочевого пузыря (этикетка: кролика)</dd>
+      <dt>Окраска</dt><dd>Гематоксилин-эозин</dd>
+      <dt>Слои</dt><dd>Базальный, промежуточный, поверхностный <span class="src">методичка</span></dd>
+      <dt>Источник развития</dt><dd>Энтодерма <span class="src">лекция, атлас</span></dd>
+      <dt>Что показать</dt><dd>Клетки трёх слоёв; апикальная поверхность куполообразной клетки (локализация пластинок уроплакина); участок эпителия в растянутом состоянии и в состоянии покоя; базальная мембрана; РВСТ <span class="src">методичка</span></dd>
+    </dl>
+    <div class="three">
+      <div><b>Точное определение</b><p>На поверхности клеток есть пластинки плазмолеммы из белка <a class="term" data-term="uro">уроплакина</a>. Они разделены гибкими участками без уроплакина. Гибкие участки образуют складки, которые погружаются в цитоплазму дисковидными пузырьками. При растяжении пузырьки встраиваются в плазмолемму, и площадь поверхности увеличивается. <span class="src">атлас</span></p></div>
+      <div><b>Простыми словами</b><p>Запас мембраны хранится внутри клетки в виде пузырьков. Когда орган растягивается, запас достраивает поверхность.</p></div>
+      <div><b>Пример</b><p>Рис. 7 и 8: участок «в растянутом состоянии» и участок «в сокращённом состоянии» на одном срезе.</p></div>
+    </div>
+    <div class="blk err"><span class="lab">Типичная ошибка</span><p>Опираться только на форму ядер, отличая переходный эпителий от плоского неороговевающего. Такой признак предложен в исходных заметках атласа, но он категоричен и вынесен в блок проверки преподавателем.</p></div>
+
+    <h3 data-idx data-title="Краткий итог раздела 1">Краткий итог раздела 1</h3>
+    <div class="blk idea"><span class="lab">Итог</span>
+      <ul><li>Покровный эпителий: пласт на базальной мембране, нет сосудов внутри, полярность, обновление за счёт камбиальных клеток.</li>
+      <li>Однослойные: мезотелий (№42), каёмчатый (№43), реснитчатый (№44). Многослойные: неороговевающий (№45), ороговевающий (№46). Переходный (№47).</li>
+      <li>Источники: эктодерма (кожа), прехордальная пластинка (трахея, пищевод), энтодерма (кишка, мочевой пузырь), спланхнотом (мезотелий).</li></ul></div>
+    <a class="btn ghost backtoc" href="#home" data-go="home">Назад к оглавлению</a>
+  </div>
+
+  <!-- КЛАССИФИКАЦИЯ -->
+  <div class="pane" id="pane-class" hidden>
+    <h3 data-idx data-title="Классификация покровных эпителиев">Классификация покровных эпителиев <span class="src">лекция, стр. 8</span></h3>
+    <div class="tree"><ul>
+      <li><span class="n">Эпителии</span>
+        <ul>
+          <li><span class="n">Покровные</span> (раздел 1)
+            <ul>
+              <li><span class="n">Однослойные</span>
+                <ul>
+                  <li>Однорядные
+                    <ul><li>плоский <span class="p">№42, рис. 11–12</span></li><li>кубический <span class="p">препарата в атласе нет</span></li><li>призматический (каёмчатый) <span class="p">№43, рис. 13–14</span></li></ul></li>
+                  <li>Многорядные
+                    <ul><li>призматический (реснитчатый) <span class="p">№44, рис. 15–17</span></li></ul></li>
+                </ul></li>
+              <li><span class="n">Многослойные</span>
+                <ul><li>неороговевающий <span class="p">№45, рис. 1–3</span></li><li>ороговевающий <span class="p">№46, рис. 4–5</span></li><li>переходный <span class="p">№47, рис. 7–8</span></li></ul></li>
+            </ul></li>
+          <li><span class="n">Железистые</span> (раздел 2)</li>
+        </ul></li>
+    </ul></div>
+    <div class="blk idea"><span class="lab">Какая классификация используется</span><p>В атласе принята классификация из лекции кафедры (рисунок на стр. 8): покровные эпителии делятся на однослойные и многослойные, однослойные на однорядные и многорядные, многослойные на ороговевающий, неороговевающий и переходный.</p></div>
+
+    <h3 data-idx data-title="Расхождения между источниками">Расхождения между источниками</h3>
+    <div class="tw"><table>
+      <thead><tr><th>Вопрос</th><th>В исходном атласе</th><th>В лекции или методичке</th><th>Принято в конспекте</th></tr></thead>
+      <tbody>
+      <tr><td>Камбиальные клетки кишки</td><td>«Располагаются диффузно»</td><td>Рисунок лекции: стволовые клетки у дна крипты</td><td>У дна крипт; проверить у преподавателя</td></tr>
+      <tr><td>Клетки эпителия трахеи</td><td>«Всего их 2»</td><td>Четыре типа клеток (лекция, стр. 13)</td><td>Четыре типа</td></tr>
+      <tr><td>Окраска препарата №42</td><td>«Гематоксилин-эозин серебро»</td><td>Импрегнация серебром + гематоксилин</td><td>По методичке</td></tr>
+      <tr><td>Объект препарата №42</td><td>«Мезотелий»</td><td>Методичка: брюшины; этикетка: сальника кролика</td><td>Мезотелий (серозная оболочка); уточнить</td></tr>
+      <tr><td>Слой с камбиальными клетками</td><td>«Камбиальный слой» (в разделе 2)</td><td>Методичка: базальный слой</td><td>Базальный слой</td></tr>
+      </tbody></table></div>
+
+    <h3 data-idx data-title="Источники развития покровных эпителиев">Источники развития и препараты</h3>
+    <div class="tw"><table>
+      <thead><tr><th>Препарат</th><th>Эпителий</th><th>Источник развития</th></tr></thead>
+      <tbody>
+      <tr><td>№42</td><td>Мезотелий</td><td>Спланхнотом (соматоплевра, спланхноплевра)</td></tr>
+      <tr><td>№43</td><td>Каёмчатый эпителий кишки</td><td>Энтодерма</td></tr>
+      <tr><td>№44</td><td>Реснитчатый эпителий трахеи</td><td>Прехордальная пластинка</td></tr>
+      <tr><td>№45</td><td>Эпителий пищевода</td><td>Прехордальная пластинка</td></tr>
+      <tr><td>№46</td><td>Эпидермис кожи пальца</td><td>Эктодерма</td></tr>
+      <tr><td>№47</td><td>Эпителий мочевого пузыря</td><td>Энтодерма</td></tr>
+      </tbody></table></div>
+    <a class="btn ghost backtoc" href="#home" data-go="home">Назад к оглавлению</a>
+  </div>
+
+  <!-- МИКРОПРЕПАРАТЫ -->
+  <div class="pane" id="pane-slides" hidden>
+    <h3>Микропрепараты раздела 1</h3>
+    <p>Рукописные метки на фото сохранены как в исходном атласе. Для каждой метки дано объяснение. Структуры без метки не размечены.</p>
+    <h4 style="margin-top:6px">Стёкла препаратов</h4>
+    <div class="slides" id="slideStrip">
+      <figure><img src="img/s42.jpg" alt="Стекло препарата 42" loading="lazy"><figcaption>№42. Этикетка: «Мезотелий сальника кролика»</figcaption></figure>
+      <figure><img src="img/s43.jpg" alt="Стекло препарата 43" loading="lazy"><figcaption>№43. Тонкая кишка. Этикетка на стекле не читается</figcaption></figure>
+      <figure><img src="img/s44.jpg" alt="Стекло препарата 44" loading="lazy"><figcaption>№44. Трахея собаки, гематоксилин-эозин</figcaption></figure>
+      <figure><img src="img/s45.jpg" alt="Стекло препарата 45" loading="lazy"><figcaption>№45. Поперечный разрез пищевода собаки</figcaption></figure>
+      <figure><img src="img/s46.jpg" alt="Стекло препарата 46" loading="lazy"><figcaption>№46. Кожа пальца человека, гематоксилин-эозин</figcaption></figure>
+      <figure><img src="img/s47.jpg" alt="Стекло препарата 47" loading="lazy"><figcaption>№47. Переходный эпителий мочевого пузыря кролика</figcaption></figure>
+    </div>
+    <div class="chips" id="chips" role="group" aria-label="Фильтр по препарату">
+      <button class="chip" data-f="all" aria-pressed="true">Раздел 1: все (14)</button>
+      <button class="chip" data-f="42" aria-pressed="false">№42 мезотелий</button>
+      <button class="chip" data-f="43" aria-pressed="false">№43 кишка</button>
+      <button class="chip" data-f="44" aria-pressed="false">№44 трахея</button>
+      <button class="chip" data-f="45" aria-pressed="false">№45 пищевод</button>
+      <button class="chip" data-f="46" aria-pressed="false">№46 кожа</button>
+      <button class="chip" data-f="47" aria-pressed="false">№47 мочевой пузырь</button>
+      <button class="chip" disabled>Раздел 2</button>
+      <button class="chip" disabled>Раздел 3</button>
+    </div>
+    <p class="mono" id="figcount" style="color:var(--ink2)"></p>
+    <div class="figs" id="figs"></div>
+    <a class="btn ghost backtoc" href="#home" data-go="home">Назад к оглавлению</a>
+  </div>
+
+  <!-- ТАБЛИЦЫ -->
+  <div class="pane" id="pane-tables" hidden>
+    <h3 data-idx data-title="Таблица классификации">Таблица 1. Классификация</h3>
+    <div class="tw"><table>
+      <thead><tr><th>Группа</th><th>Подгруппа</th><th>Главные признаки</th><th>Пример</th></tr></thead>
+      <tbody>
+      <tr><td>Однослойные</td><td>Однорядный плоский</td><td>Пласт плоских клеток на базальной мембране</td><td>Мезотелий, №42</td></tr>
+      <tr><td>Однослойные</td><td>Однорядный кубический</td><td>В атласе нет препарата</td><td>—</td></tr>
+      <tr><td>Однослойные</td><td>Однорядный призматический</td><td>Каёмчатые и бокаловидные клетки</td><td>Тонкая кишка, №43</td></tr>
+      <tr><td>Однослойные</td><td>Многорядный призматический</td><td>Низкие вставочные, высокие вставочные, реснитчатые, бокаловидные</td><td>Трахея, №44</td></tr>
+      <tr><td>Многослойные</td><td>Неороговевающий</td><td>Слои: базальный, шиповатый, поверхностный</td><td>Пищевод, №45</td></tr>
+      <tr><td>Многослойные</td><td>Ороговевающий</td><td>Слои: базальный, шиповатый, зернистый, блестящий, роговой</td><td>Кожа пальца, №46</td></tr>
+      <tr><td>Многослойные</td><td>Переходный</td><td>Слои: базальный, промежуточный, поверхностный</td><td>Мочевой пузырь, №47</td></tr>
+      </tbody></table></div>
+
+    <h3 data-idx data-title="Таблица структура строение функция">Таблица 2. Структура, строение, функция</h3>
+    <div class="tw"><table>
+      <thead><tr><th>Структура</th><th>Где</th><th>Что известно</th></tr></thead>
+      <tbody>
+      <tr><td>Базальная мембрана</td><td>Граница эпителия и РВСТ</td><td>Пласт эпителия расположен на ней (лекция)</td></tr>
+      <tr><td>Щёточная каёмка</td><td>Апикальная поверхность каёмчатых клеток</td><td>Микроворсинки увеличивают поверхность клетки (лекция по цитологии)</td></tr>
+      <tr><td>Реснички</td><td>Апикальная поверхность реснитчатых клеток</td><td>Подвижные структуры (лекция по цитологии)</td></tr>
+      <tr><td>Бокаловидная клетка</td><td>Эпителий кишки и трахеи</td><td>Апикальная часть содержит секреторные гранулы (методичка)</td></tr>
+      <tr><td>Низкая вставочная клетка</td><td>Эпителий трахеи, базальная часть</td><td>Камбиальная клетка (атлас, методичка)</td></tr>
+      <tr><td>Высокая вставочная клетка</td><td>Эпителий трахеи</td><td>Функция в материалах не указана</td></tr>
+      <tr><td>Пластинки уроплакина</td><td>Поверхность клеток переходного эпителия</td><td>Защищают эпителий от мочи; между ними гибкие участки (атлас)</td></tr>
+      <tr><td>Мезотелий</td><td>Серозные оболочки</td><td>Выделение и всасывание серозной жидкости (атлас)</td></tr>
+      </tbody></table></div>
+
+    <h3 data-idx data-title="Таблица как узнать объект">Таблица 3. Как узнать объект на микрофотографии</h3>
+    <div class="tw"><table>
+      <thead><tr><th>Что искать</th><th>Как выглядит</th><th>Почему важно</th><th>Рис.</th></tr></thead>
+      <tbody>
+      <tr><td>Сеть границ клеток</td><td>Тёмные линии вокруг полигональных клеток, ядра внутри</td><td>Признак мезотелия на тотальном препарате с серебром</td><td>11</td></tr>
+      <tr><td>Щёточная каёмка</td><td>Тонкая светлая полоса по краю эпителия ворсинки</td><td>Отличает каёмчатый эпителий</td><td>14</td></tr>
+      <tr><td>Бокаловидные клетки</td><td>Светлые клетки среди столбчатых</td><td>Клетки эпителия кишки и трахеи</td><td>14, 16</td></tr>
+      <tr><td>Слой ресничек</td><td>Тёмная линия на апикальной поверхности</td><td>Признак реснитчатого эпителия</td><td>17</td></tr>
+      <tr><td>Ядра на разных уровнях</td><td>Два и более ряда ядер</td><td>Признак многорядного эпителия</td><td>16, 17</td></tr>
+      <tr><td>Слои неороговевающего</td><td>Базальный, шиповатый, поверхностный</td><td>Три слоя в препарате №45</td><td>3</td></tr>
+      <tr><td>Зернистый, блестящий, роговой</td><td>Тёмная базофильная полоса, светлая полоса, розовые безъядерные чешуйки</td><td>Признаки ороговевающего эпителия</td><td>5</td></tr>
+      <tr><td>Растянутый и сокращённый участки</td><td>Разная форма клеток на одном срезе</td><td>Особенность переходного эпителия</td><td>7, 8</td></tr>
+      </tbody></table></div>
+
+    <h3 data-idx data-title="Таблица похожие объекты">Таблица 4. Похожие объекты и их различия</h3>
+    <div class="tw"><table>
+      <thead><tr><th>Пара</th><th>Первый объект</th><th>Второй объект</th></tr></thead>
+      <tbody>
+      <tr><td>Каёмчатый и реснитчатый эпителий</td><td>Кишка: однорядный, щёточная каёмка, энтодерма</td><td>Трахея: многорядный, реснички, прехордальная пластинка</td></tr>
+      <tr><td>Переходный и многослойный плоский неороговевающий</td><td>Мочевой пузырь: слои базальный, промежуточный, поверхностный; растянутое и сокращённое состояние; энтодерма</td><td>Пищевод: слои базальный, шиповатый, поверхностный; прехордальная пластинка</td></tr>
+      <tr><td>Неороговевающий и ороговевающий</td><td>Пищевод: три слоя</td><td>Кожа: пять слоёв, роговой слой</td></tr>
+      <tr><td>Блестящий и роговой слой</td><td>Блестящий: светлая полоса между зернистым и роговым слоем (рис. 5)</td><td>Роговой: розовые безъядерные чешуйки (рис. 5)</td></tr>
+      <tr><td>Низкие и высокие вставочные клетки</td><td>Низкие: базальные, камбиальные</td><td>Высокие: ядра на более высоком уровне (рис. 17)</td></tr>
+      <tr><td>Граница с РВСТ и «базальная мембрана»</td><td>На метках фото 1, 4, 7, 8, 14, 16 показана граница эпителия и РВСТ</td><td>На малом увеличении мембрана как отдельная структура не различима</td></tr>
+      </tbody></table></div>
+
+    <h3 data-idx data-title="Таблица типичных ошибок">Таблица 5. Типичные ошибки</h3>
+    <div class="tw"><table>
+      <thead><tr><th>Ошибка</th><th>Как правильно</th></tr></thead>
+      <tbody>
+      <tr><td>Окраска №42: гематоксилин-эозин</td><td>Импрегнация серебром + гематоксилин</td></tr>
+      <tr><td>Щёточная каёмка на малом увеличении</td><td>На малом увеличении виден край ворсинок; каёмка различима на большом (рис. 14)</td></tr>
+      <tr><td>В эпителии трахеи 2 типа клеток</td><td>4 типа по лекции</td></tr>
+      <tr><td>Камбиальные клетки кишки «диффузно»</td><td>По рисунку лекции у дна крипты; проверить у преподавателя</td></tr>
+      <tr><td>Эпителий пищевода из эктодермы</td><td>Прехордальная пластинка (лекция)</td></tr>
+      <tr><td>Эпителий мочевого пузыря из мезодермы</td><td>Энтодерма (лекция)</td></tr>
+      <tr><td>Различать переходный и плоский эпителий только по ядрам</td><td>Использовать слои, состояние органа и общий вид; уточнить у преподавателя</td></tr>
+      </tbody></table></div>
+    <a class="btn ghost backtoc" href="#home" data-go="home">Назад к оглавлению</a>
+  </div>
+
+  <!-- САМОПРОВЕРКА -->
+  <div class="pane" id="pane-quiz" hidden>
+    <h3>Самопроверка раздела 1</h3>
+    <p>Сначала ответьте самостоятельно, затем откройте ответ.</p>
+    <div id="quizbox"></div>
+    <a class="btn ghost backtoc" href="#home" data-go="home">Назад к оглавлению</a>
+  </div>
+
+  <!-- ИСТОЧНИКИ -->
+  <div class="pane" id="pane-sources" hidden>
+    <h3>Источники раздела 1</h3>
+    <ul>
+      <li><b>Лекция «Морфофункциональная характеристика эпителиальных тканей. Покровные эпителии»</b>, кафедра морфологии ИАМ РНИМУ им. Н.И. Пирогова: общие признаки, обновление, классификация, источники развития, клеточный состав, препараты №42–44.</li>
+      <li><b>Лекция «Специализация клеточной поверхности»</b>: функции микроворсинок и ресничек.</li>
+      <li><b>Методичка «Эпителии. Что нужно уметь найти и показать на препаратах»</b>: перечни структур, слои, окраска препаратов №42–47.</li>
+      <li><b>Исходный студенческий атлас</b> (10 страниц): фотографии, рукописные метки, заметки об уроплакине, локализации, функции и источнике развития.</li>
+      <li><b>Вопросы от преподавателей</b>: пункты «Белки переходного эпителия», «Дифферон и клетки трахеи», «Отличия бокаловидных клеток трахеи и тонкой кишки», «Альбом», «Объяснить причины окрасок».</li>
+    </ul>
+    <h3 id="check" data-idx data-title="Что требует проверки преподавателем">Что требует проверки преподавателем</h3>
+    <div class="blk err"><span class="lab">Неясные фотографии</span><ul>
+      <li>Рис. 11: «двуядерная клетка» отмечена красными овалами, на кадре уверенно не подтверждается.</li>
+      <li>Рис. 13: этикетка стекла №43 не читается, отдел тонкой кишки не определён.</li>
+      <li>Рис. 15: розовый вытянутый участок ткани в центре кадра не подписан и не идентифицирован.</li>
+      <li>Рис. 16: реснички и бокаловидная клетка различимы плохо.</li>
+      <li>Рис. 5: небольшая округлая структура внутри круга «роговой слой» не подписана.</li></ul></div>
+    <div class="blk test"><span class="lab">Спорные подписи</span><ul>
+      <li>Метка «базальная мембрана» на рис. 1, 4, 7, 8, 14, 16 указывает на границу эпителия и РВСТ.</li>
+      <li>Рис. 2: «клетки полигональной формы шиповатого слоя» и «плоские клетки поверхностного слоя» при этом разрешении различимы не везде.</li>
+      <li>Рис. 5: «блестящий слой (значит, это толстая кожа)» — вывод автора атласа.</li>
+      <li>Рис. 7: контуры клеток в рамках нарисованы поверх фото; деление на «растянутый» и «сокращённый» участки требует подтверждения.</li>
+      <li>Рис. 13: метка «щёточная каёмка» на малом увеличении указывает на поверхность ворсинок.</li>
+      <li>Исходная заметка: «у переходного эпителия ядра округлые, у плоского неороговевающего уплощённые» — слишком категорично.</li></ul></div>
+    <div class="blk test"><span class="lab">Неполные сведения</span><ul>
+      <li>Увеличение не указано: рис. 15, 16, 17.</li>
+      <li>Для препарата №47 в материалах не указана локализация камбиальных клеток.</li>
+      <li>Функции высокой вставочной клетки в материалах нет.</li>
+      <li>Различия бокаловидных клеток трахеи и тонкой кишки (вопрос преподавателей) в материалах не описаны.</li>
+      <li>Белки переходного эпителия: в материалах упомянут только уроплакин.</li>
+      <li>№42: этикетка «сальник кролика», методичка «брюшина».</li>
+      <li>Рисунок 6 (рукописный конспект о многослойных эпителиях) не вошёл в атлас: текст не читается.</li></ul></div>
+    <div class="blk diff"><span class="lab">Возможны разные варианты классификации</span><ul>
+      <li>Локализация камбиальных клеток кишки: «диффузно» (атлас) и «у дна крипты» (рисунок лекции).</li>
+      <li>Число типов клеток эпителия трахеи: 2 (атлас) и 4 (лекция).</li></ul></div>
+    <a class="btn ghost backtoc" href="#home" data-go="home">Назад к оглавлению</a>
+  </div>
+</section>
+</main>
+</div>
+
+<div class="fab">
+  <button id="toTop" aria-label="Наверх">Наверх</button>
+  <button id="toToc" aria-label="К оглавлению">К оглавлению</button>
+</div>
+
+<div class="lb" id="lb" hidden role="dialog" aria-modal="true" aria-label="Просмотр фотографии">
+  <div class="lb-bar">
+    <span class="t" id="lbT"></span>
+    <button id="lbPrev" aria-label="Предыдущее фото">Назад</button>
+    <button id="lbNext" aria-label="Следующее фото">Вперёд</button>
+    <button id="lbZoom">Увеличить</button>
+    <button id="lbFull">Во весь экран</button>
+    <button id="lbClose">Закрыть</button>
+  </div>
+  <div class="lb-stage" id="lbStage"><img id="lbImg" alt=""></div>
+  <div class="lb-cap" id="lbCap"></div>
+</div>
+
+<script>
+(function(){
+"use strict";
+var FIGS=[
+{id:"f01",n:1,prep:"45",title:"Пищевод собаки: многослойный плоский неороговевающий эпителий",sub:"1.3 Многослойные, неороговевающий",tissue:"Многослойный плоский неороговевающий эпителий (методичка, препарат №45)",stain:"Гематоксилин-эозин (Г-Э)",mag:"малое",
+ desc:"Поперечный срез стенки пищевода: тёмный пласт эпителия вдоль щелевидного просвета, под ним ярко-розовая РВСТ с группами светлых клеток.",
+ seen:["Складчатая слизистая оболочка вокруг просвета","Фиолетовый пласт эпителия на поверхности складок","Под эпителием розовая рыхлая волокнистая соединительная ткань","В РВСТ светлые вакуолизированные группы клеток (концевые отделы желёз)"],
+ feat:["Многослойный пласт эпителия на поверхности, обращённой к просвету","Волнистая граница эпителия и РВСТ","Железы лежат в РВСТ, за пределами эпителия"],
+ find:["Эпителиоциты базального, шиповатого, поверхностного слоёв","Базальная мембрана","Подлежащая РВСТ","Слизистые экстраэпителиальные железы (раздел 2)"],
+ marks:["«Просвет пищевода»: щель между складками","«РВСТ»: розовая ткань под эпителием","«Базальная мембрана»: скобка вдоль границы эпителия и РВСТ","«Концевые отделы слизистых желёз»: стрелки к светлым группам клеток в РВСТ"],
+ cap:"Рисунок 1. Пищевод собаки (препарат №45). Многослойный плоский неороговевающий эпителий на фоне РВСТ; ниже эпителия концевые отделы слизистых желёз. Окраска: гематоксилин-эозин. Увеличение: малое. Основные структуры: просвет пищевода, эпителий, граница с РВСТ (базальная мембрана), РВСТ.",
+ lv:"check",conf:"Тип эпителия подтверждается методичкой и этикеткой. Метка «базальная мембрана» стоит на границе эпителия и РВСТ: на малом увеличении мембрана как отдельная структура не различима. Идентификация желёз: в разделе 2."},
+{id:"f02",n:2,prep:"45",title:"Пищевод собаки: шиповатый и поверхностный слои",sub:"1.3 Многослойные, неороговевающий",tissue:"Многослойный плоский неороговевающий эпителий",stain:"Гематоксилин-эозин (Г-Э)",mag:"большое",
+ desc:"Край складки эпителия при большем увеличении: в рамке клетки шиповатого слоя, прямоугольной рамкой выделен поверхностный слой.",
+ seen:["Эпителий складки, обращённый к просвету","Верхняя левая рамка: клетки шиповатого слоя (по подписи атласа)","Прямоугольная рамка: уплощённые клетки у поверхности"],
+ feat:["Клетки шиповатого слоя крупнее и круглее","Клетки поверхностного слоя уплощены"],
+ find:["Эпителиоциты шиповатого слоя","Эпителиоциты поверхностного слоя"],
+ marks:["«Клетки полигональной формы шиповатого слоя»: рамка и стрелка вверху слева","«Хорошо видны плоские клетки поверхностного слоя»: стрелка к прямоугольной рамке вдоль нижней складки"],
+ cap:"Рисунок 2. Пищевод собаки (препарат №45). Многослойный плоский неороговевающий эпителий: шиповатый слой (рамка слева вверху) и поверхностный слой (прямоугольная рамка). Окраска: гематоксилин-эозин. Увеличение: большое. Основные структуры: шиповатый слой, поверхностный слой.",
+ lv:"check",conf:"Полигональная форма клеток в рамке и плоская форма поверхностных клеток при этом разрешении различимы не везде. Идентификация требует проверки по исходной методичке или преподавателю."},
+{id:"f03",n:3,prep:"45",title:"Пищевод собаки: слои эпителия",sub:"1.3 Многослойные, неороговевающий",tissue:"Многослойный плоский неороговевающий эпителий",stain:"Гематоксилин-эозин (Г-Э)",mag:"большое",
+ desc:"Изогнутая складка слизистой: тремя дугами от РВСТ к просвету выделены слои эпителия; внизу в РВСТ виден проток железы.",
+ seen:["Фиолетовый пласт эпителия на розовой РВСТ","Три дуги, отмечающие слои","Внизу в РВСТ узкая трубчатая структура"],
+ feat:["Три слоя: базальный, шиповатый, поверхностный","Глубокие слои плотнее окрашены"],
+ find:["Базальный слой","Шиповатый слой","Поверхностный слой","Выводной проток железы (раздел 2)"],
+ marks:["«Базальный слой», «шиповатый слой», «поверхностный слой»: дуги вдоль эпителия","«Проток железы»: надпись у трубчатой структуры в РВСТ"],
+ cap:"Рисунок 3. Пищевод собаки (препарат №45). Слои многослойного плоского неороговевающего эпителия: базальный, шиповатый, поверхностный; внизу проток железы в РВСТ. Окраска: гематоксилин-эозин. Увеличение: большое. Основные структуры: три слоя эпителия, РВСТ, проток железы.",
+ lv:"ok",conf:"Слои различимы. Границы между слоями проведены вручную и условны."},
+{id:"f04",n:4,prep:"46",title:"Кожа пальца человека: общий вид эпидермиса",sub:"1.3 Многослойные, ороговевающий",tissue:"Многослойный плоский ороговевающий эпителий (методичка, препарат №46)",stain:"Гематоксилин-эозин (Г-Э)",mag:"малое",
+ desc:"Эпидермис с сосочками дермы и очень толстым розовым роговым слоем. Дерма расположена вверху кадра, роговой слой внизу.",
+ seen:["Эпидермис в средней части кадра","Сосочки соединительной ткани, вдающиеся в эпидермис","Внизу толстая розовая полоса рогового слоя"],
+ feat:["Толстый роговой слой","Сосочки дермы"],
+ find:["Клетка базального слоя (локализация камбиальных клеток)","Клетка шиповатого слоя","Базальная мембрана","Подлежащая РВСТ"],
+ marks:["«Базальная мембрана»: дуга вокруг сосочка","«Базальный слой»: линия вдоль глубокой границы эпителия","«Шиповатый слой»: стрелка из рамки, увеличенной на рис. 5","«РВСТ»: ткань сосочка"],
+ cap:"Рисунок 4. Кожа пальца человека (препарат №46). Многослойный плоский ороговевающий эпителий: базальный и шиповатый слои, сосочки РВСТ, толстый роговой слой. Окраска: гематоксилин-эозин. Увеличение: малое. Основные структуры: базальный слой, шиповатый слой, граница с РВСТ, РВСТ.",
+ lv:"ok",conf:"Тип эпителия подтверждается этикеткой стекла и методичкой. Метка «базальная мембрана» стоит на границе с РВСТ."},
+{id:"f05",n:5,prep:"46",title:"Кожа пальца человека: зернистый, блестящий и роговой слои",sub:"1.3 Многослойные, ороговевающий",tissue:"Многослойный плоский ороговевающий эпителий",stain:"Гематоксилин-эозин (Г-Э)",mag:"большое",
+ desc:"Поверхностная часть эпидермиса: крупные клетки шиповатого слоя, ниже тёмная полоса зернистого слоя, светлая полоса блестящего слоя и розовый роговой слой.",
+ seen:["Крупные светлые клетки с ядрами (шиповатый слой)","Узкая тёмно-фиолетовая полоса (зернистый слой)","Бледная полоса между ним и роговым слоем","Широкий розовый безъядерный слой"],
+ feat:["Зернистый слой ярко базофилен (подпись атласа)","Блестящий слой выделяется как светлая полоса","Роговой слой состоит из безъядерных чешуек"],
+ find:["Клетка шиповатого слоя","Клетка зернистого слоя","Блестящий слой","Роговой слой (роговые чешуйки)"],
+ marks:["«(Крупные клетки полигональной формы)»: стрелка из рамки на рис. 4, шиповатый слой","«Зернистый слой (окрашен ярко базофильно)»","«Блестящий слой (значит, это толстая кожа)»: две линии вокруг светлой полосы","«Роговой слой»: овал на розовой зоне"],
+ cap:"Рисунок 5. Кожа пальца человека (препарат №46). Слои ороговевающего эпителия: шиповатый, зернистый, блестящий, роговой. Окраска: гематоксилин-эозин. Увеличение: большое. Основные структуры: шиповатый слой, зернистый слой, блестящий слой, роговой слой.",
+ lv:"check",conf:"Названия слоёв соответствуют методичке. Вывод «значит, это толстая кожа» принадлежит автору атласа. В круге «роговой слой» есть небольшая округлая структура: она не подписана и не идентифицирована."},
+{id:"f07",n:7,prep:"47",title:"Мочевой пузырь кролика: растянутый и сокращённый участки",sub:"1.4 Переходный эпителий",tissue:"Переходный эпителий (методичка, препарат №47)",stain:"Гематоксилин-эозин (Г-Э)",mag:"малое",
+ desc:"Толстый многослойный пласт на РВСТ. Две рамки выделяют участки, названные «эпителий в растянутом состоянии» и «в сокращённом состоянии».",
+ seen:["Эпителий разной толщины вдоль складки слизистой","Верхняя рамка: тонкий участок у края","Нижняя рамка: участок с более высоким эпителием","Розовая РВСТ с сосудами и пучками волокон"],
+ feat:["Несколько слоёв клеток","Разная форма клеток на разных участках"],
+ find:["Клетки базального, промежуточного, поверхностного слоёв","Участок эпителия в растянутом состоянии","Участок эпителия в состоянии покоя","Базальная мембрана","Подлежащая РВСТ"],
+ marks:["«Эпителий в растянутом состоянии»: верхняя рамка; внутри нарисован контур клеток","«Эпителий в сокращённом состоянии»: нижняя рамка; внутри нарисованы куполообразные контуры","«РВСТ»","«Базальная мембрана»: линия на границе эпителия и РВСТ"],
+ cap:"Рисунок 7. Мочевой пузырь кролика (препарат №47). Переходный эпителий: участки в растянутом и сокращённом состоянии. Контуры клеток в рамках нарисованы схематично. Окраска: гематоксилин-эозин. Увеличение: малое. Основные структуры: эпителий, РВСТ, граница с РВСТ.",
+ lv:"check",conf:"Контуры клеток в рамках нарисованы поверх фотографии и не являются изображением самих клеток. Деление на «растянутый» и «сокращённый» участки требует подтверждения преподавателем."},
+{id:"f08",n:8,prep:"47",title:"Мочевой пузырь кролика: слои переходного эпителия",sub:"1.4 Переходный эпителий",tissue:"Переходный эпителий",stain:"Гематоксилин-эозин (Г-Э)",mag:"большое",
+ desc:"Те же участки при большем увеличении: слева тонкий пласт эпителия, справа более толстый с тремя выделенными слоями.",
+ seen:["Слева тонкий пласт с крупными поверхностными клетками","Справа пласт с тремя линиями слоёв","Розовая РВСТ под эпителием"],
+ feat:["Три слоя: базальный, промежуточный, поверхностный","Различие формы клеток на двух участках"],
+ find:["Клетка поверхностного слоя","Клетка промежуточного слоя","Клетка базального слоя"],
+ marks:["«Те же участки, хорошо видна разница в форме клеток»: две стрелки к участкам, показанным на рис. 7","«Поверхностный слой», «промежуточный слой», «базальный слой»: дуги и стрелки"],
+ cap:"Рисунок 8. Мочевой пузырь кролика (препарат №47). Слои переходного эпителия: базальный, промежуточный, поверхностный; различия формы клеток на участках рис. 7. Окраска: гематоксилин-эозин. Увеличение: большое. Основные структуры: три слоя эпителия, РВСТ.",
+ lv:"ok",conf:"Слои различимы. Границы слоёв проведены вручную и условны."},
+{id:"f11",n:11,prep:"42",title:"Мезотелий сальника кролика: границы клеток и ядра",sub:"1.2 Однослойные, плоский",tissue:"Однослойный плоский однорядный эпителий, мезотелий (тотальный препарат)",stain:"Импрегнация серебром + докраска гематоксилином (в исходной подписи было «гематоксилин-эозин серебро»)",mag:"большое",
+ desc:"Вид сверху на пласт плоских клеток: тёмная золотисто-коричневая сеть границ клеток и фиолетовые ядра.",
+ seen:["Полигональные клетки, разделённые тёмными линиями","Фиолетовые ядра внутри клеток","Тёмная виньетка по краям кадра"],
+ feat:["Границы клеток выявлены серебром","Препарат не срез, а тотальный"],
+ find:["Ядро мезотелиоцита","Двуядерный мезотелиоцит"],
+ marks:["«Граница клеток»: стрелка к тёмной линии","«Ядро»: стрелка","«Двуядерная клетка»: стрелка к двум красным овалам"],
+ cap:"Рисунок 11. Мезотелий сальника кролика (препарат №42). Однослойный плоский эпителий, тотальный препарат. Окраска: импрегнация серебром, докраска гематоксилином. Увеличение: большое. Основные структуры: границы клеток, ядра мезотелиоцитов.",
+ lv:"check",conf:"Сеть границ и ядра видны. «Двуядерная клетка» подтверждается только красными овалами: на кадре её нельзя уверенно подтвердить. Идентификация требует проверки по исходной методичке или преподавателю."},
+{id:"f12",n:12,prep:"42",title:"Мезотелий сальника кролика: общий вид и дефект препарата",sub:"1.2 Однослойные, плоский",tissue:"Однослойный плоский однорядный эпителий, мезотелий (тотальный препарат)",stain:"Импрегнация серебром + докраска гематоксилином",mag:"малое",
+ desc:"Поле мелких клеток с сетью границ; по полю разбросаны светлые круглые пятна.",
+ seen:["Мозаика клеток с коричневатыми границами","Много светлых круглых пятен разного размера"],
+ feat:["Светлые круглые пятна: по подписи атласа, дефект препарата"],
+ find:["Границы клеток","Ядра (на этом увеличении различимы слабо)"],
+ marks:["«Дефект препарата»: стрелка к светлому пятну"],
+ cap:"Рисунок 12. Мезотелий сальника кролика (препарат №42). Обзорный вид тотального препарата; светлые пятна: дефект препарата. Окраска: импрегнация серебром, докраска гематоксилином. Увеличение: малое. Основные структуры: пласт клеток мезотелия.",
+ lv:"ok",conf:"Светлые пятна соответствуют подписи «дефект препарата»."},
+{id:"f13",n:13,prep:"43",title:"Тонкая кишка: ворсинки (малое увеличение)",sub:"1.2 Однослойные, призматический каёмчатый",tissue:"Однослойный однорядный призматический каёмчатый эпителий (методичка, препарат №43)",stain:"Гематоксилин-эозин (Г-Э)",mag:"малое",
+ desc:"Ряд длинных пальцевидных ворсинок, покрытых эпителием; внизу плотная розовая ткань.",
+ seen:["Ворсинки разной длины","Эпителий, покрывающий ворсинки","Внизу розовая плотная ткань (не подписана)"],
+ feat:["Эпителий лежит на ворсинках, внутри ворсинки соединительная ткань"],
+ find:["Каёмчатый эпителий, покрывающий ворсинку","Эпителий крипты (на этом кадре не размечен)"],
+ marks:["«Ворсина кишки»: обводка одной ворсинки","«Щёточная каёмка»: стрелка к краю ворсинок слева"],
+ cap:"Рисунок 13. Тонкая кишка (препарат №43). Ворсинки, покрытые однослойным однорядным призматическим каёмчатым эпителием. Окраска: гематоксилин-эозин. Увеличение: малое. Основные структуры: ворсинка, эпителий ворсинки.",
+ lv:"check",conf:"На малом увеличении щёточная каёмка не разрешается: метка указывает на поверхность ворсинок. Отдел тонкой кишки не определён: этикетка стекла не читается."},
+{id:"f14",n:14,prep:"43",title:"Тонкая кишка: эпителий ворсинки",sub:"1.2 Однослойные, призматический каёмчатый",tissue:"Однослойный однорядный призматический каёмчатый эпителий",stain:"Гематоксилин-эозин (Г-Э)",mag:"большое",
+ desc:"Ворсинки при большем увеличении: ряд столбчатых клеток с ядрами на одном уровне, светлые клетки среди них, строма внутри.",
+ seen:["Эпителий по краю ворсинки","Ядра эпителия в один ряд","Светлые клетки между столбчатыми","Соединительная ткань внутри ворсинки"],
+ feat:["Щёточная каёмка по краю","Бокаловидные клетки светлые"],
+ find:["Каёмчатый эпителиоцит: ядро, цитоплазма, щёточная каёмка","Бокаловидная клетка","Базальная мембрана","РВСТ ворсинки"],
+ marks:["«Щёточная каёмка»","«Ядра эпителия»","«Базальная мембрана»: линия на границе эпителия и РВСТ","«Бокаловидные клетки»: стрелка к светлым клеткам внизу","«РВСТ»: стрелка в ворсинку"],
+ cap:"Рисунок 14. Тонкая кишка (препарат №43). Эпителий ворсинки: каёмчатые и бокаловидные клетки на фоне РВСТ. Окраска: гематоксилин-эозин. Увеличение: большое. Основные структуры: щёточная каёмка, ядра эпителия, бокаловидные клетки, граница с РВСТ, РВСТ.",
+ lv:"check",conf:"Каёмка видна как тонкая светлая линия. Бокаловидные клетки определены по светлой цитоплазме и требуют проверки. Метка «базальная мембрана» стоит на границе эпителия и РВСТ."},
+{id:"f15",n:15,prep:"44",title:"Трахея собаки: общий вид стенки",sub:"1.2 Однослойные, многорядный реснитчатый",tissue:"Однослойный многорядный призматический реснитчатый эпителий (методичка, препарат №44)",stain:"Гематоксилин-эозин (Г-Э)",mag:"не указано",
+ desc:"Складка слизистой оболочки, покрытая тонкой фиолетовой полосой эпителия; в глубине розовые структуры.",
+ seen:["Выпуклая складка слизистой","Тонкая фиолетовая полоса по краю: эпителий","Розовый вытянутый участок ткани в центре (не подписан)","Мелкие круглые и трубчатые срезы в соединительной ткани"],
+ feat:["Эпителий покрывает всю поверхность складки"],
+ find:["Эпителий","Подлежащая РВСТ"],
+ marks:["«Эпителий»: стрелка к полосе по краю складки"],
+ cap:"Рисунок 15. Трахея собаки (препарат №44). Обзорный вид слизистой оболочки, покрытой однослойным многорядным реснитчатым эпителием. Окраска: гематоксилин-эозин. Увеличение: не указано. Основные структуры: эпителий.",
+ lv:"check",conf:"Увеличение не указано. Розовый участок в центре кадра не подписан. Идентификация требует проверки по исходной методичке или преподавателю."},
+{id:"f16",n:16,prep:"44",title:"Трахея собаки: эпителий и граница с РВСТ",sub:"1.2 Однослойные, многорядный реснитчатый",tissue:"Однослойный многорядный призматический реснитчатый эпителий",stain:"Гематоксилин-эозин (Г-Э)",mag:"не указано",
+ desc:"Эпителий в профиле: высокие клетки с ядрами на разных уровнях, под ним РВСТ.",
+ seen:["Волнистая полоса эпителия","Ядра на нескольких уровнях","РВСТ с отдельными клетками и сосудами"],
+ feat:["Многорядное расположение ядер"],
+ find:["Базальная мембрана","Бокаловидная клетка","Реснитчатый эпителиоцит"],
+ marks:["«Базальная мембрана»: красная дуга вдоль границы эпителия","«Призматическая реснитчатая клетка»: три красные линии","«Бокаловидная клетка»: стрелка к светлой клетке"],
+ cap:"Рисунок 16. Трахея собаки (препарат №44). Эпителий и граница с РВСТ. Окраска: гематоксилин-эозин. Увеличение: не указано. Основные структуры: эпителий, граница с РВСТ, РВСТ.",
+ lv:"low",conf:"Реснички и бокаловидная клетка на этом кадре различимы плохо. Идентификация требует проверки по исходной методичке или преподавателю."},
+{id:"f17",n:17,prep:"44",title:"Трахея собаки: реснички и вставочные клетки",sub:"1.2 Однослойные, многорядный реснитчатый",tissue:"Однослойный многорядный призматический реснитчатый эпителий",stain:"Гематоксилин-эозин (Г-Э)",mag:"не указано",
+ desc:"Самый информативный кадр: на поверхности тёмная линия ресничек, ядра эпителия лежат на нескольких уровнях, под эпителием РВСТ.",
+ seen:["Тонкая тёмная линия на апикальной поверхности","Верхний и нижний ряды ядер","РВСТ с волокнами и ядрами"],
+ feat:["Многорядность","Слой ресничек"],
+ find:["Реснички","Ядро высокой вставочной клетки","Ядро низкой вставочной (камбиальной) клетки","РВСТ"],
+ marks:["«Реснички»: стрелка к апикальной линии","«Высокие вставочные клетки»: стрелка к ядрам","«Низкие вставочные (камбиальные) клетки»: стрелка к нижнему ряду","«РВСТ»"],
+ cap:"Рисунок 17. Трахея собаки (препарат №44). Однослойный многорядный реснитчатый эпителий: реснички, высокие и низкие вставочные клетки, РВСТ. Окраска: гематоксилин-эозин. Увеличение: не указано. Основные структуры: реснички, высокие вставочные клетки, низкие вставочные (камбиальные) клетки, РВСТ.",
+ lv:"ok",conf:"Ядра на разных уровнях и линия ресничек видны. Соответствие стрелок отдельным ядрам условное."}
+];
+var LV={ok:"Подтверждается фото",check:"Требует проверки",low:"Идентификация затруднена"};
+
+var QUIZ=[
+{t:"1.1 Общие признаки",u:[
+ ["Назовите пять признаков, общих для покровных эпителиев.","Пласт плотно лежащих клеток; пласт на базальной мембране; нет кровеносных сосудов внутри пласта; апикально-базальная полярность; высокая способность к регенерации (обновляющаяся популяция)."],
+ ["Что такое дифферон?","Ряд клеток: стволовая клетка, клетки в процессе специализации, специализированная клетка."],
+ ["За счёт чего восполняется естественная убыль клеток эпителия?","За счёт пролиферации стволовых (камбиальных) клеток."],
+ ["Что находится на апикальной, латеральной и базальной поверхности эпителиоцита?","Апикальная: микроворсинки, реснички, стереоцилии, киноцилии. Латеральная: межклеточные контакты. Базальная: базальные инвагинации и контакты с подлежащими структурами."]],
+ c:[
+ ["Чем однорядные однослойные эпителии отличаются от многорядного по классификации лекции?","Однорядными бывают плоский, кубический и призматический; многорядным по лекции является призматический (реснитчатый, препарат №44)."],
+ ["Откуда развиваются эпителий пищевода и эпителий мочевого пузыря?","Пищевод: прехордальная пластинка. Мочевой пузырь: энтодерма."]],
+ p:["Рис. 3. Назовите три слоя эпителия на фото.","Базальный, шиповатый, поверхностный."],
+ k:["Отнесите к группам: мезотелий, эпидермис кожи пальца, эпителий мочевого пузыря.","Мезотелий: однослойный плоский. Эпидермис кожи: многослойный плоский ороговевающий. Мочевой пузырь: переходный."]},
+{t:"1.2 Однослойные",u:[
+ ["Какая окраска у препарата №42?","Импрегнация серебром и докраска гематоксилином (не гематоксилин-эозин)."],
+ ["Какие клетки образуют каёмчатый эпителий кишки?","Каёмчатые и бокаловидные."],
+ ["Какие клетки входят в многорядный реснитчатый эпителий?","Низкие вставочные (базальные), высокие вставочные, реснитчатые, бокаловидные."],
+ ["Что покрывает мезотелий и какова его функция?","Серозные оболочки; выделение и всасывание серозной жидкости (атлас)."],
+ ["Какие клетки трахеи камбиальные?","Низкие вставочные (базальные) клетки."]],
+ c:[
+ ["Сравните эпителий кишки и трахеи: поверхность, ряды, источник.","Кишка: щёточная каёмка, однорядный, энтодерма. Трахея: реснички, многорядный, прехордальная пластинка."],
+ ["В каких двух рассмотренных эпителиях есть бокаловидные клетки?","В каёмчатом эпителии кишки и в многорядном реснитчатом эпителии трахеи. Различия между ними в материалах не описаны (вопрос преподавателей)."]],
+ p:["Рис. 17. Что подписано на фото?","Реснички, высокие вставочные клетки, низкие вставочные (камбиальные) клетки, РВСТ."],
+ k:["Определите препарат по признакам: а) сеть границ клеток на тотальном препарате; б) ворсинки с щёточной каёмкой; в) ядра на разных уровнях и реснички.","а) №42; б) №43; в) №44."]},
+{t:"1.3 Многослойные",u:[
+ ["Назовите слои эпителия препарата №45.","Базальный, шиповатый, поверхностный."],
+ ["Назовите слои эпителия препарата №46.","Базальный, шиповатый, зернистый, блестящий, роговой."],
+ ["Где находятся камбиальные клетки в эпидермисе?","В базальном слое."],
+ ["Какой источник развития у эпидермиса и у эпителия пищевода?","Эпидермис: эктодерма. Пищевод: прехордальная пластинка."],
+ ["Какой орган показан на препарате №46?","Кожа пальца человека."]],
+ c:[
+ ["Чем ороговевающий эпителий отличается от неороговевающего?","Ороговевающий: пять слоёв, сверху роговой слой из безъядерных чешуек. Неороговевающий: три слоя."],
+ ["Сравните источники развития эпителия пищевода и кожи.","Пищевод: прехордальная пластинка; кожа: эктодерма."]],
+ p:["Рис. 5. Назовите слои от шиповатого к поверхности.","Шиповатый, зернистый, блестящий, роговой."],
+ k:["Отнесите к группам: пищевод, кожа пальца.","Пищевод: многослойный плоский неороговевающий. Кожа пальца: многослойный плоский ороговевающий."]},
+{t:"1.4 Переходный",u:[
+ ["Какой препарат и окраска у переходного эпителия в атласе?","Препарат №47, мочевой пузырь, гематоксилин-эозин."],
+ ["Назовите слои переходного эпителия.","Базальный, промежуточный, поверхностный."],
+ ["Какой источник развития у эпителия мочевого пузыря?","Энтодерма."],
+ ["Какой белок образует пластинки плазмолеммы и зачем?","Уроплакин, интегральный белок; защищает эпителий от агрессивного воздействия мочи."],
+ ["Как происходит растяжение эпителия?","Гибкие участки между пластинками образуют складки и погружаются в цитоплазму дисковидными пузырьками; при растяжении пузырьки встраиваются в плазмолемму, площадь поверхности растёт."]],
+ c:[
+ ["Сравните слои переходного и многослойного плоского неороговевающего эпителия.","Переходный: базальный, промежуточный, поверхностный. Плоский неороговевающий: базальный, шиповатый, поверхностный."],
+ ["Чем различаются растянутый и сокращённый участки на рис. 7 и 8?","Формой клеток, по подписи атласа; деление на участки требует подтверждения."]],
+ p:["Рис. 7. Что отмечено рамками?","Верхняя рамка: эпителий в растянутом состоянии; нижняя: в сокращённом состоянии (контуры клеток нарисованы)."],
+ k:["Подберите источник развития: пищевод, мочевой пузырь, мезотелий.","Пищевод: прехордальная пластинка. Мочевой пузырь: энтодерма. Мезотелий: спланхнотом (соматоплевра и спланхноплевра)."]}
+];
+
+var $=function(s,r){return (r||document).querySelector(s)};
+var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function li(a){return a.map(function(x){return "<li>"+esc(x)+"</li>"}).join("")}
+
+/* карточки фото */
+var figsBox=$("#figs");
+figsBox.innerHTML=FIGS.map(function(f,i){
+ return '<article class="fig" id="fig-'+f.n+'" data-prep="'+f.prep+'" data-idx data-title="Рисунок '+f.n+'. '+esc(f.title)+'">'+
+ '<div class="ph"><button class="zoom" data-i="'+i+'" aria-label="Увеличить рисунок '+f.n+'"><img src="img/'+f.id+'.jpg" alt="Рисунок '+f.n+': '+esc(f.title)+'" loading="lazy"></button><div class="hint">Нажмите, чтобы увеличить</div></div>'+
+ '<div><div class="mono" style="color:var(--ink2)">РИСУНОК '+f.n+' · ПРЕПАРАТ №'+f.prep+'</div><h4>'+esc(f.title)+'</h4>'+
+ '<div class="badges"><span class="pill">Раздел 1: '+esc(f.sub)+'</span><span class="pill">Окраска: '+esc(f.stain.split(" (")[0])+'</span><span class="pill">Увеличение: '+esc(f.mag)+'</span></div>'+
+ '<p><b>Ткань или структура:</b> '+esc(f.tissue)+'</p><p>'+esc(f.desc)+'</p>'+
+ '<details><summary>Что видно на фотографии</summary><ul>'+li(f.seen)+'</ul></details>'+
+ '<details><summary>Главные диагностические признаки</summary><ul>'+li(f.feat)+'</ul></details>'+
+ '<details><summary>Какие структуры нужно найти</summary><ul>'+li(f.find)+'</ul></details>'+
+ '<details><summary>Метки на фото</summary><ul>'+li(f.marks)+'</ul></details>'+
+ '<div class="cap"><b>Подпись под изображением</b>'+esc(f.cap)+'</div>'+
+ '<div class="conf"><span class="pill '+f.lv+'">'+LV[f.lv]+'</span> '+esc(f.conf)+'</div></div></article>';
+}).join("");
+
+/* самопроверка */
+$("#quizbox").innerHTML=QUIZ.map(function(g){
+ function q(a,l){return '<div class="q"><div>'+esc(a[0])+'</div><details><summary>Показать ответ</summary><p>'+esc(a[1])+'</p></details></div>'}
+ return '<section class="qgroup" data-idx data-title="Самопроверка '+esc(g.t)+'"><h4>'+esc(g.t)+'</h4>'+
+ '<h5>Вопросы на понимание</h5>'+g.u.map(q).join("")+
+ '<h5>Вопросы на сравнение</h5>'+g.c.map(q).join("")+
+ '<h5>Вопрос по фотографии</h5>'+q(g.p)+
+ '<h5>Мини-задание на классификацию</h5>'+q(g.k)+'</section>';
+}).join("");
+
+/* навигация */
+var TABS=["theory","class","slides","tables","quiz","sources"];
+var cur="home";
+function setHash(h){try{if(location.hash!=="#"+h)history.replaceState(null,"","#"+h)}catch(e){}}
+function show(name,noScroll){
+ if(name!=="home"&&TABS.indexOf(name)<0)name="home";
+ cur=name;
+ var home=name==="home";
+ $("#view-home").hidden=!home; $("#view-sec").hidden=home;
+ TABS.forEach(function(t){$("#pane-"+t).hidden=(t!==name)});
+ $$("#tabs button").forEach(function(b){b.setAttribute("aria-selected",String(b.dataset.go===name))});
+ $$(".nav a[data-go]").forEach(function(a){a.classList.toggle("on",a.dataset.go===name)});
+ $$("#subnav a").forEach(function(a){a.classList.remove("on")});
+ setHash(name);
+ $("#nav").classList.remove("open"); $("#burger").setAttribute("aria-expanded","false");
+ if(!noScroll)window.scrollTo(0,0);
+}
+function jump(id){
+ show("theory",true);
+ var el=document.getElementById(id); if(el){el.scrollIntoView({block:"start"});flash(el)}
+}
+function flash(el){el.classList.remove("flash");void el.offsetWidth;el.classList.add("flash")}
+document.addEventListener("click",function(e){
+ var t=e.target.closest("[data-term]");
+ if(t){e.preventDefault();show("theory",true);var el=document.getElementById("t-"+t.dataset.term);if(el){el.scrollIntoView({block:"center"});flash(el)}return}
+ var j=e.target.closest("[data-jump]");
+ if(j){e.preventDefault();if(j.dataset.go){show("theory",true)}jump(j.dataset.jump);$$("#subnav a").forEach(function(a){a.classList.toggle("on",a===j)});$("#nav").classList.remove("open");return}
+ var g=e.target.closest("[data-go]");
+ if(g){e.preventDefault();show(g.dataset.go);return}
+});
+$("#burger").addEventListener("click",function(){var o=$("#nav").classList.toggle("open");this.setAttribute("aria-expanded",String(o))});
+$("#toTop").addEventListener("click",function(){window.scrollTo({top:0})});
+$("#toToc").addEventListener("click",function(){show("home",true);var t=$("#toc");if(t){t.scrollIntoView({block:"start"});flash(t)}});
+window.addEventListener("hashchange",function(){var h=location.hash.slice(1);if(h&&h!==cur)show(h)});
+
+/* подсветка подраздела при прокрутке */
+if("IntersectionObserver" in window){
+ var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting&&cur==="theory"){$$("#subnav a").forEach(function(a){a.classList.toggle("on",a.dataset.jump===en.target.id)})}})},{rootMargin:"-80px 0px -70% 0px"});
+ ["s11","s12","s13","s14"].forEach(function(id){var el=document.getElementById(id);if(el)io.observe(el)});
+}
+
+/* фильтр */
+function applyFilter(f){
+ var n=0;
+ $$("#chips .chip[data-f]").forEach(function(c){c.setAttribute("aria-pressed",String(c.dataset.f===f))});
+ $$(".fig").forEach(function(a){var ok=(f==="all"||a.dataset.prep===f);a.hidden=!ok;if(ok)n++});
+ $("#figcount").textContent="Показано рисунков: "+n+" из "+FIGS.length;
+}
+$("#chips").addEventListener("click",function(e){var c=e.target.closest(".chip[data-f]");if(c)applyFilter(c.dataset.f)});
+applyFilter("all");
+
+/* лайтбокс */
+var lb=$("#lb"),lbImg=$("#lbImg"),lbStage=$("#lbStage"),list=[],pos=0,lastFocus=null;
+function visibleFigs(){return FIGS.filter(function(f){return !document.getElementById("fig-"+f.n).hidden})}
+function openLb(i){
+ list=visibleFigs(); pos=Math.max(0,list.indexOf(FIGS[i]));
+ lastFocus=document.activeElement; lb.hidden=false; document.body.style.overflow="hidden"; renderLb(); $("#lbClose").focus();
+}
+function renderLb(){
+ var f=list[pos]; lbImg.src="img/"+f.id+".jpg"; lbImg.alt="Рисунок "+f.n;
+ $("#lbT").textContent="Рисунок "+f.n+" · препарат №"+f.prep+" · "+(pos+1)+" из "+list.length;
+ $("#lbCap").textContent=f.cap; lbStage.classList.remove("z"); $("#lbZoom").textContent="Увеличить"; lbStage.scrollTo(0,0);
+}
+function closeLb(){
+ lb.hidden=true; document.body.style.overflow="";
+ try{if(document.fullscreenElement)document.exitFullscreen()}catch(e){}
+ if(lastFocus&&lastFocus.focus)lastFocus.focus();
+}
+function step(d){pos=(pos+d+list.length)%list.length;renderLb()}
+function toggleZoom(){var z=lbStage.classList.toggle("z");$("#lbZoom").textContent=z?"Уменьшить":"Увеличить"}
+figsBox.addEventListener("click",function(e){var b=e.target.closest("button.zoom");if(b)openLb(+b.dataset.i)});
+$("#lbClose").addEventListener("click",closeLb);
+$("#lbPrev").addEventListener("click",function(){step(-1)});
+$("#lbNext").addEventListener("click",function(){step(1)});
+$("#lbZoom").addEventListener("click",toggleZoom);
+lbImg.addEventListener("click",toggleZoom);
+$("#lbFull").addEventListener("click",function(){
+ try{var p=lb.requestFullscreen?lb.requestFullscreen():null;if(p&&p.catch)p.catch(function(){})}catch(e){}
+});
+document.addEventListener("keydown",function(e){
+ if(lb.hidden)return;
+ if(e.key==="Escape")closeLb(); else if(e.key==="ArrowLeft")step(-1); else if(e.key==="ArrowRight")step(1);
+});
+
+/* поиск */
+function headOf(el){var n=el;while(n&&!(n.classList&&n.classList.contains("pane"))){var p=n.previousElementSibling;while(p){if(/^H[34]$/.test(p.tagName))return p.textContent;p=p.previousElementSibling}n=n.parentElement}return ""}
+$$(".pane .blk, .pane .three, .pane .pass, .pane .tw, .pane .tree, .pane ul").forEach(function(el){if(!el.hasAttribute("data-idx")&&!el.closest("[data-idx]")){el.setAttribute("data-idx","");el.dataset.title=headOf(el).replace(/\s+/g," ").trim()}});
+var index=[];
+$$("[data-idx]").forEach(function(el){
+ var title=el.dataset.title||(el.querySelector("h3,h4,b")||{}).textContent||"";
+ var pane=el.closest(".pane"); var tab=pane?pane.id.replace("pane-",""):"theory";
+ index.push({el:el,title:title.trim(),text:el.textContent.toLowerCase(),tab:tab});
+});
+var TABN={theory:"Теория",class:"Классификация",slides:"Микропрепараты",tables:"Таблицы",quiz:"Самопроверка",sources:"Источники"};
+var qi=$("#q"),res=$("#res");
+function doSearch(){
+ var v=qi.value.trim().toLowerCase();
+ if(v.length<2){res.hidden=true;return}
+ var hits=index.filter(function(x){return x.text.indexOf(v)>-1}).slice(0,10);
+ if(!hits.length){res.innerHTML='<div class="none">Ничего не найдено</div>';res.hidden=false;return}
+ res.innerHTML=hits.map(function(h,i){
+  var p=h.text.indexOf(v),s=h.text.slice(Math.max(0,p-30),p+70).replace(/\s+/g," ");
+  return '<button data-h="'+i+'"><b>'+esc(h.title)+'</b><small>'+TABN[h.tab]+': …'+esc(s)+'…</small></button>';
+ }).join("");
+ res.hidden=false; res._hits=hits;
+}
+qi.addEventListener("input",doSearch);
+qi.addEventListener("focus",doSearch);
+res.addEventListener("click",function(e){
+ var b=e.target.closest("button[data-h]"); if(!b)return;
+ var h=res._hits[+b.dataset.h]; res.hidden=true;
+ show(h.tab,true); setTimeout(function(){h.el.scrollIntoView({block:"center"});flash(h.el)},30);
+});
+document.addEventListener("click",function(e){if(!e.target.closest(".search"))res.hidden=true});
+
+show((location.hash||"#home").slice(1),true);
+})();
+</script>
+
+</body></html>
